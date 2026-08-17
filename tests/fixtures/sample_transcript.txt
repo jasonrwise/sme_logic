@@ -1,0 +1,9 @@
+Interview with Maria Chen, Senior Lab Technician, Cold Chain QC
+
+So basically when a shipment comes in, first thing is scanning the barcode into the LIMS system — that logs the arrival time automatically. Then I check the temperature logger that's inside the box. It has to have stayed below 8°C the whole way, no exceptions — if it went above that even for a few minutes we have to reject the whole batch and file an incident report. That's non-negotiable, it's in our SOP for cold chain compliance.
+
+Honestly though, before I even open the box, I always give it a quick shake test — you can usually tell if something broke inside just from the sound. Nobody taught me that, I just picked it up after a couple of years of bad shipments. It's saved us from opening boxes with shattered vials more than once.
+
+After the temp check passes, I do a visual inspection of the vials themselves, then log everything into the tracking sheet. If the paperwork — the chain of custody form — isn't fully signed, I can't release the samples to the analysts, doesn't matter how good the shipment looked.
+
+One thing that worries me: right now I'm the only one on shift who's actually certified on the new logger reader. If I'm out sick, the whole intake process backs up because nobody else can pull the data off it.
