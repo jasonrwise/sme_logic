@@ -26,6 +26,16 @@ SME Logic is a proof-of-concept pipeline that ingests unstructured SME notes/tra
 - React + TypeScript + Tailwind (frontend/)
 - python-dotenv for environment variables
 
+## Environment variables
+
+Create a `.env` file at the repository root and set the following variables (do not commit `.env`):
+
+- ANTHROPIC_API_KEY — your Anthropic API key (e.g., `sk-...`). Required for any live extraction smoke tests.
+- BACKEND_PORT — optional, port for the FastAPI app (default: `8000`).
+- FRONTEND_URL — optional, URL where the frontend is served during local development (used for CORS in `app.main`).
+
+Note: In production, protect the `/api/v1/ingest` endpoint behind your auth layer; the Anthropic key is only used server-side by the ingestion service.
+
 ## Quickstart
 
 Assumptions:
@@ -55,6 +65,55 @@ Assumptions:
 6. Manual live-API smoke test (optional)
 
    python -m app.services.ingestion_service
+
+## API: /api/v1/ingest
+
+This endpoint accepts a JSON POST with an SME transcript (or other unstructured text) and returns a validated extraction according to the project's Pydantic schemas.
+
+Request (curl):
+
+  curl -X POST http://localhost:8000/api/v1/ingest \
+    -H "Content-Type: application/json" \
+    -d '{"transcript": "The customer reported intermittent auth failures when using SSO. Steps to reproduce: ...", "metadata": {"source": "interview-2026-08-20"}}'
+
+Request (TypeScript, fetch):
+
+  // frontend/src/api/ingest.ts
+  export async function ingest(transcript: string, metadata = {}) {
+    const res = await fetch('/api/v1/ingest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transcript, metadata }),
+    });
+    if (!res.ok) throw new Error(`ingest failed: ${res.status}`);
+    return res.json();
+  }
+
+Example expected response (shape depends on `app/schemas`):
+
+  {
+    "id": "ingest_abc123",
+    "schema_version": "1.0",
+    "extraction": {
+      "workflow": [...],
+      "entities": [...],
+      "complianceChecklist": {
+        "items": [
+          {"id": "c1", "title": "Require unique user IDs", "status": "pass"}
+        ]
+      }
+    },
+    "warnings": [],
+    "_internal": {
+      "model": "claude-opus-5",
+      "stop_reason": null,
+      "cache_read_input_tokens": 128
+    }
+  }
+
+Notes:
+- The precise JSON fields are defined in `/app/schemas/` and enforced by the server using `messages.parse()`.
+- If the model refuses or truncates output, the server surface structured error information (see PRD.md for handling rules).
 
 ## Project layout (high level)
 
