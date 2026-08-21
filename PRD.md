@@ -7,7 +7,7 @@ The goal of this project is to build an enterprise-grade proof of concept that i
 ## Technology Stack
 - **Backend:** Python 3.11+, FastAPI, Uvicorn, Pydantic v2
 - **AI Orchestration & LLM Client:** Anthropic Python SDK (`anthropic`), Claude Opus 5 (`claude-opus-5`) as the default extraction model; Claude Sonnet 5 (`claude-sonnet-5`) for high-volume/cost-sensitive passes
-- **Frontend / Scaffolding:** React (via v0 / Tailwind CSS / shadcn/ui) or Streamlit
+- **Frontend / Scaffolding:** React (via v0 / Tailwind CSS / shadcn/ui) — decided over Streamlit; lives in a separate `/frontend` directory and talks to the FastAPI backend over the CORS-enabled `/api/v1` routes.
 - **Environment Management:** `python-dotenv` for API key handling (keys stored strictly in `.env`)
 
 ## Architectural & Code Standards
@@ -29,7 +29,13 @@ The goal of this project is to build an enterprise-grade proof of concept that i
    - Minimum cacheable prefix is **512 tokens on `claude-opus-5`** and **1024 on `claude-sonnet-5`**. Below that it silently will not cache — no error, just `cache_creation_input_tokens: 0`.
    - **Verify, don't assume:** assert `response.usage.cache_read_input_tokens > 0` on the second and later requests of a batch. If it stays 0, a silent invalidator is in the prefix.
 
+## Testing Strategy
+1. **Unit tests (`/tests`, pytest):** Mock the Anthropic client so schema validation, error-handling branches (refusal, max_tokens, each typed exception), and prompt-assembly logic are verified deterministically, for free, and safely in CI — no live API calls in the automated suite.
+2. **Manual live-API smoke script (`app/services/ingestion_service.py` `__main__` block, or a dedicated `scripts/` entry):** Runs one real request against a sanitized sample SME transcript to sanity-check end-to-end behavior and confirm prompt caching is actually hitting (`cache_read_input_tokens > 0` on the second run). Sample transcripts are sanitized fixtures committed under version control (never real client data — see `.gitignore`'s `data/`/`outputs/` exclusion).
+
 ## Terminal & Workflow Commands
 - Run backend locally: `uvicorn app.main:app --reload --port 8000`
-- Install dependencies: `pip install fastapi uvicorn pydantic anthropic python-dotenv`
-- Run test ingestion: `python -m app.services.ingestion_service`
+- Install backend dependencies: `pip install -r requirements.txt`
+- Run backend tests: `pytest`
+- Run manual ingestion smoke test: `python -m app.services.ingestion_service`
+- Run frontend locally: `cd frontend && npm run dev`

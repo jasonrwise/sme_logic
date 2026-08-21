@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from app.services.ingestion_service import parse_sme_notes
+from app.services.ingestion_service import parse_sme_notes, IngestionError
 from app.schemas.workflow import ComplianceChecklist
 
 app = FastAPI(title="SME Logic Ingestion Agent API", version="1.0.0")
@@ -24,6 +24,8 @@ async def ingest_notes(payload: IngestionRequest):
         raise HTTPException(status_code=400, detail="Input text cannot be empty.")
     try:
         return parse_sme_notes(payload.raw_text)
+    except IngestionError as e:
+        raise HTTPException(status_code=502, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
