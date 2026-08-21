@@ -39,6 +39,9 @@ dist/
 *.local
 *.tsbuildinfo
 
+# Vite cache
+frontend/.vite/
+
 # ---- Streamlit ----
 .streamlit/secrets.toml
 
