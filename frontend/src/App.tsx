@@ -63,6 +63,7 @@ export default function App() {
             value={rawText}
             onChange={(e) => setRawText(e.target.value)}
             placeholder="Paste SME notes here..."
+            disabled={isLoading}
           />
           <Button onClick={handleSubmit} disabled={isLoading || !rawText.trim()}>
             {isLoading ? "Extracting..." : "Extract Workflow"}
@@ -76,7 +77,37 @@ export default function App() {
         </div>
       )}
 
-      {result && (
+      {isLoading && (
+        <div className="mt-6 space-y-4">
+          <Card className="animate-pulse">
+            <CardHeader>
+              <div className="h-5 w-1/3 rounded bg-slate-200" />
+              <div className="mt-2 h-3 w-1/5 rounded bg-slate-200" />
+            </CardHeader>
+            <CardContent>
+              <div className="h-3 w-full rounded bg-slate-200" />
+              <div className="mt-2 h-3 w-2/3 rounded bg-slate-200" />
+            </CardContent>
+          </Card>
+          <Card className="animate-pulse">
+            <CardHeader>
+              <div className="h-5 w-1/4 rounded bg-slate-200" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="h-12 w-full rounded bg-slate-200" />
+              <div className="h-12 w-full rounded bg-slate-200" />
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {!isLoading && !error && !result && (
+        <p className="mt-6 text-sm text-slate-400">
+          No workflow extracted yet — paste notes above and click "Extract Workflow".
+        </p>
+      )}
+
+      {!isLoading && result && (
         <div className="mt-6 space-y-4">
           <Card>
             <CardHeader>
