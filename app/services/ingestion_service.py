@@ -4,6 +4,7 @@ import os
 import anthropic
 from anthropic import Anthropic
 from dotenv import load_dotenv
+from pydantic import ValidationError
 
 from app.prompts.extraction import SYSTEM_PROMPT
 from app.schemas.workflow import ComplianceChecklist
@@ -15,6 +16,10 @@ logger = logging.getLogger(__name__)
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 MODEL = "claude-opus-5"
+# Larger intake sources (e.g. PDF/docx transcripts) can produce checklists
+# with many steps; too low a ceiling here is the most common cause of the
+# ValidationError handled below (see _call_model).
+MAX_OUTPUT_TOKENS = 8192
 
 
 class IngestionError(Exception):
@@ -31,7 +36,7 @@ def _call_model(raw_notes: str):
     try:
         return client.messages.parse(
             model=MODEL,
-            max_tokens=4096,
+            max_tokens=MAX_OUTPUT_TOKENS,
             system=[
                 {
                     "type": "text",
@@ -47,6 +52,19 @@ def _call_model(raw_notes: str):
             ],
             output_format=ComplianceChecklist,
         )
+    except ValidationError as e:
+        # client.messages.parse() validates the model's JSON internally and
+        # raises here directly if it doesn't parse — most commonly because
+        # output was truncated at max_tokens before the JSON closed. This
+        # happens before we ever get a response object back, so the
+        # stop_reason=="max_tokens" check in parse_sme_notes never runs for
+        # this case; it must be caught here instead.
+        logger.error("Model output failed schema validation (likely truncated JSON): %s", e)
+        raise IngestionError(
+            "Model output could not be parsed as valid JSON — this usually means the "
+            f"response was truncated before completing (max_tokens={MAX_OUTPUT_TOKENS}). "
+            "Try a shorter/smaller input, or raise MAX_OUTPUT_TOKENS if this persists."
+        ) from e
     except anthropic.NotFoundError as e:
         logger.error("Anthropic model not found: %s", e)
         raise IngestionError(f"Model not found: {e}") from e
