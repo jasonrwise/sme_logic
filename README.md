@@ -2,15 +2,18 @@
 
 Take raw SME feedback and deterministically transform it into a structured, validated knowledge representation.
 
-Status: Draft (Milestone 1: standards-compliant ingestion pipeline + React frontend)
+Status: Draft (Milestone 3: multi-format intake, workflow metadata, markdown/PDF export)
 
 ## Overview
 
-SME Logic is a proof-of-concept pipeline that ingests unstructured SME notes/transcripts and converts them into validated JSON workflow/schema artifacts using Claude (Anthropic) models. The goal is deterministic, auditable extraction with strong guardrails and prompt caching to reduce cost.
+SME Logic is a proof-of-concept pipeline that ingests unstructured SME notes/transcripts and converts them into validated JSON workflow/compliance checklist artifacts using Claude (Anthropic) models. The goal is deterministic, auditable extraction with strong guardrails and prompt caching to reduce cost.
 
 ## Key features
 
 - Deterministic, schema-first extraction using Pydantic models and Anthropic's `messages.parse()` API.
+- Intake from pasted text, `.docx`, or `.pdf` (text-layer only — scanned/image-based PDFs aren't supported).
+- User-entered metadata (title, date, notes) captured on the intake form and carried through to export.
+- Export a completed workflow as Markdown or PDF.
 - Explicit, typed error handling for model refusals, truncation (max_tokens), and SDK exceptions.
 - Prompt caching for cost control and repeatability (prefix caching recommendations in PRD).
 - Backend: FastAPI + Uvicorn, Python 3.11+, Pydantic v2.
@@ -23,6 +26,8 @@ SME Logic is a proof-of-concept pipeline that ingests unstructured SME notes/tra
 - FastAPI, Uvicorn
 - Pydantic v2
 - Anthropic Python SDK (Claude Opus 5 default)
+- python-docx, pypdf (file intake parsing)
+- fpdf2 (PDF export)
 - React + TypeScript + Tailwind (frontend/)
 - python-dotenv for environment variables
 
@@ -30,9 +35,9 @@ SME Logic is a proof-of-concept pipeline that ingests unstructured SME notes/tra
 
 Create a `.env` file at the repository root and set the following variables (do not commit `.env`):
 
-- ANTHROPIC_API_KEY — your Anthropic API key (e.g., `sk-...`). Required for any live extraction smoke tests.
-- BACKEND_PORT — optional, port for the FastAPI app (default: `8000`).
-- FRONTEND_URL — optional, URL where the frontend is served during local development (used for CORS in `app.main`).
+- `ANTHROPIC_API_KEY` — your Anthropic API key (e.g., `sk-...`). Required for any live extraction smoke tests.
+- `BACKEND_PORT` — optional, port for the FastAPI app when run via `python -m app.main` (default: `8000`). If you invoke `uvicorn` directly instead, pass `--port` on the command line — it won't read this variable.
+- `FRONTEND_URL` — optional, restricts CORS to a single origin (e.g. `http://localhost:5173`) instead of the local-dev default of `*`.
 
 Note: In production, protect the `/api/v1/ingest` endpoint behind your auth layer; the Anthropic key is only used server-side by the ingestion service.
 
@@ -44,84 +49,125 @@ Assumptions:
 
 1. Backend: install Python dependencies
 
+   ```bash
    pip install -r requirements.txt
+   ```
 
 2. Create a `.env` with your Anthropic key:
 
+   ```bash
    ANTHROPIC_API_KEY=sk-...
+   ```
 
 3. Run the backend locally
 
+   ```bash
    uvicorn app.main:app --reload --port 8000
+   ```
 
 4. Run the frontend
 
+   ```bash
    cd frontend && npm install && npm run dev
+   ```
 
 5. Run tests
 
+   ```bash
    pytest
+   ```
 
 6. Manual live-API smoke test (optional)
 
+   ```bash
    python -m app.services.ingestion_service
+   ```
 
-## API: /api/v1/ingest
+## API
 
-This endpoint accepts a JSON POST with an SME transcript (or other unstructured text) and returns a validated extraction according to the project's Pydantic schemas.
+### `POST /api/v1/ingest`
 
-Request (curl):
+Accepts a `multipart/form-data` request — the intake form's metadata fields, plus either pasted text or an uploaded file (never both).
 
-  curl -X POST http://localhost:8000/api/v1/ingest \
-    -H "Content-Type: application/json" \
-    -d '{"transcript": "The customer reported intermittent auth failures when using SSO. Steps to reproduce: ...", "metadata": {"source": "interview-2026-08-20"}}'
+| Field      | Type          | Required | Notes                                              |
+|------------|---------------|----------|-----------------------------------------------------|
+| `title`    | string        | yes      | Workflow title                                      |
+| `date`     | string (ISO)  | yes      | e.g. `2026-08-20`                                   |
+| `notes`    | string        | no       |                                                      |
+| `raw_text` | string        | one of `raw_text` / `file` | Pasted transcript text                |
+| `file`     | file          | one of `raw_text` / `file` | `.docx` or `.pdf`, text-layer only    |
 
-Request (TypeScript, fetch):
+Request (curl, pasted text):
 
-  // frontend/src/api/ingest.ts
-  export async function ingest(transcript: string, metadata = {}) {
-    const res = await fetch('/api/v1/ingest', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transcript, metadata }),
-    });
-    if (!res.ok) throw new Error(`ingest failed: ${res.status}`);
-    return res.json();
-  }
+```bash
+curl -X POST http://localhost:8000/api/v1/ingest \
+  -F "title=Cold Chain Intake QC" \
+  -F "date=2026-08-20" \
+  -F "notes=Interview with Maria Chen" \
+  -F "raw_text=So basically when a shipment comes in, first thing is scanning the barcode..."
+```
 
-Example expected response (shape depends on `app/schemas`):
+Request (curl, file upload):
 
-  {
-    "id": "ingest_abc123",
-    "schema_version": "1.0",
-    "extraction": {
-      "workflow": [...],
-      "entities": [...],
-      "complianceChecklist": {
-        "items": [
-          {"id": "c1", "title": "Require unique user IDs", "status": "pass"}
-        ]
+```bash
+curl -X POST http://localhost:8000/api/v1/ingest \
+  -F "title=Cold Chain Intake QC" \
+  -F "date=2026-08-20" \
+  -F "file=@transcript.pdf"
+```
+
+Response (`WorkflowResult`):
+
+```json
+{
+  "metadata": {
+    "title": "Cold Chain Intake QC",
+    "date": "2026-08-20",
+    "notes": "Interview with Maria Chen"
+  },
+  "checklist": {
+    "workflow_name": "Cold Chain Shipment Intake",
+    "domain": "Life Sciences",
+    "summary_of_tacit_knowledge": "Technicians shake-test boxes before opening, an unwritten habit learned from prior bad shipments.",
+    "steps": [
+      {
+        "step_number": 1,
+        "action_name": "Scan Barcode",
+        "description": "Scan the shipment barcode into the LIMS system.",
+        "actor_role": "Lab Tech",
+        "is_compliance_critical": false,
+        "deterministic_rule": null
       }
-    },
-    "warnings": [],
-    "_internal": {
-      "model": "claude-opus-5",
-      "stop_reason": null,
-      "cache_read_input_tokens": 128
-    }
+    ],
+    "identified_risks": [
+      "Only one technician is certified on the new logger reader."
+    ]
   }
+}
+```
 
-Notes:
-- The precise JSON fields are defined in `/app/schemas/` and enforced by the server using `messages.parse()`.
-- If the model refuses or truncates output, the server surface structured error information (see PRD.md for handling rules).
+Errors: `400` for missing/conflicting intake fields or an unreadable/unsupported file; `502` if the Anthropic extraction pipeline fails (refusal, truncation, or SDK error — see PRD.md).
+
+### `POST /api/v1/export/markdown` and `POST /api/v1/export/pdf`
+
+Accept a JSON body shaped like the `WorkflowResult` returned by `/api/v1/ingest` (i.e. re-post what you got back, possibly after edits) and return the rendered file as a download (`Content-Disposition: attachment`).
+
+```bash
+curl -X POST http://localhost:8000/api/v1/export/markdown \
+  -H "Content-Type: application/json" \
+  -d @workflow_result.json \
+  -o workflow.md
+```
 
 ## Project layout (high level)
 
 - app/
-  - main.py — FastAPI app and CORS setup
+  - main.py — FastAPI app, CORS setup, ingest + export routes
   - services/ingestion_service.py — Anthropic client, parse logic, prompt caching
+  - services/file_extraction.py — `.docx`/`.pdf` text extraction for file uploads
+  - services/export_service.py — Markdown/PDF rendering for workflow export
   - prompts/ — prompt templates and examples
-  - schemas/ — Pydantic models used for validated extraction
+  - schemas/ — Pydantic models used for validated extraction and API contracts
 - frontend/ — React + TypeScript + Tailwind UI
 - tests/ — pytest tests (mocked SDK)
 - PRD.md — product requirements and engineering guidance

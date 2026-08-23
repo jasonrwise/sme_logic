@@ -1,3 +1,4 @@
+import os
 import re
 from datetime import date
 
@@ -12,10 +13,12 @@ from app.schemas.workflow import WorkflowMetadata, WorkflowResult
 
 app = FastAPI(title="SME Logic Ingestion Agent API", version="1.0.0")
 
-# Enable CORS for local v0/React prototyping
+# Enable CORS for local v0/React prototyping.
+# FRONTEND_URL restricts this to a single known origin (e.g. in a deployed
+# environment); unset, it falls back to "*" for local dev convenience.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[os.getenv("FRONTEND_URL", "*")],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -90,3 +93,11 @@ async def export_pdf(payload: WorkflowResult):
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
+
+
+if __name__ == "__main__":
+    # Alternative to `uvicorn app.main:app --reload --port <N>`: honors
+    # BACKEND_PORT so the value documented in the README is real.
+    import uvicorn
+
+    uvicorn.run("app.main:app", host="0.0.0.0", port=int(os.getenv("BACKEND_PORT", 8000)), reload=True)
