@@ -81,6 +81,21 @@ def test_parse_sme_notes_max_tokens_raises(monkeypatch):
         parse_sme_notes(SAMPLE_NOTES)
 
 
+def test_parse_sme_notes_truncated_json_raises(monkeypatch):
+    # client.messages.parse() validates the model's JSON internally and
+    # raises ValidationError directly (rather than returning a response with
+    # stop_reason="max_tokens") when the output is truncated mid-JSON — the
+    # failure mode this test reproduces.
+    with pytest.raises(Exception) as truncation_exc_info:
+        ComplianceChecklist.model_validate_json('{"workflow_name": "Truncated')
+
+    mock_parse = MagicMock(side_effect=truncation_exc_info.value)
+    monkeypatch.setattr(ingestion_service.client.messages, "parse", mock_parse)
+
+    with pytest.raises(IngestionError, match="truncated"):
+        parse_sme_notes(SAMPLE_NOTES)
+
+
 @pytest.mark.parametrize(
     "make_exc",
     [
