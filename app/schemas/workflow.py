@@ -1,3 +1,4 @@
+from datetime import date as date_type
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
@@ -15,3 +16,12 @@ class ComplianceChecklist(BaseModel):
     summary_of_tacit_knowledge: str = Field(description="Key unwritten SME habits or hidden assumptions identified in the input")
     steps: List[WorkflowStep] = Field(description="Ordered list of standard operational steps")
     identified_risks: List[str] = Field(description="Potential bottlenecks, single points of failure, or compliance risks")
+
+class WorkflowMetadata(BaseModel):
+    title: str = Field(description="User-entered title for this workflow, from the intake form")
+    date: date_type = Field(description="User-entered date for this workflow, from the intake form's calendar widget")
+    notes: Optional[str] = Field(default=None, description="Free-text notes entered by the user on the intake form")
+
+class WorkflowResult(BaseModel):
+    metadata: WorkflowMetadata
+    checklist: ComplianceChecklist

@@ -4,3 +4,7 @@ pydantic
 anthropic
 python-dotenv
 pytest
+python-multipart
+python-docx
+pypdf
+fpdf2
