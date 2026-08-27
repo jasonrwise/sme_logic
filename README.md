@@ -1,12 +1,11 @@
 # SME Logic
 
-Take raw SME feedback and deterministically transform it into a structured, validated knowledge representation.
+SME Logic is a proof-of-concept pipeline that ingests unstructured SME notes, interview transcripts or draft SOPs and transforms them into validated compliance checklists, workflows and knowledge base entries. Using Claude AI for structured extraction, the system reconstructs messy field knowledge into machine-readable workflows - complete with identified risks, compliance flags and explicit capture of tacit operational habits.
 
-Status: Draft (Milestone 3: multi-format intake, workflow metadata, markdown/PDF export)
 
 ## Overview
 
-SME Logic is a proof-of-concept pipeline that ingests unstructured SME notes/transcripts and converts them into validated JSON workflow/compliance checklist artifacts using Claude (Anthropic) models. The goal is deterministic, auditable extraction with strong guardrails and prompt caching to reduce cost.
+Enterprise operations depend on tacit knowledge - procedures, workarounds and safety habits that live in the heads of experienced Subject Matter Experts (SMEs) and get lost when they leave. Most SOPs document only the official process; the hidden wisdom that keeps operations safe and efficient stays unwritten and is unavailable for use in the knowledge bases that power AI solutions. Loss or lack of documentation of this tacit knowledge represents a company's intellectual property that is not being fully leveraged.
 
 ## Key features
 
