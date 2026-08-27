@@ -191,4 +191,6 @@ This repository follows a conservative change policy: keep changes surgical and 
 
 ## License
 
-TBD
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+SPDX-License-Identifier: MIT
