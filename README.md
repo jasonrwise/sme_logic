@@ -184,6 +184,7 @@ curl -X POST http://localhost:8000/api/v1/export/markdown \
 
 - To debug prompt caching or production extraction issues, consult `PRD.md` for exact caching rules (minimum cacheable prefix sizes and common invalidators).
 - If a model call returns `stop_reason: "refusal"`, do not attempt naive retries — inspect stop details and surface the refusal.
+- Large intake sources (e.g. PDF/docx transcripts) can produce a checklist whose JSON gets truncated at `max_tokens` before `client.messages.parse()` can validate it — this raises a `pydantic.ValidationError` directly, before any `response.stop_reason` is available, so it's caught separately in `ingestion_service.py` and surfaced as a `502`.
 
 ## Contributing
 
